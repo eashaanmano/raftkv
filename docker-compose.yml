@@ -1,0 +1,36 @@
+# 5-node, single-group RaftKV cluster.
+#   docker compose up -d --build
+#   docker compose run --rm client status
+#   docker compose run --rm client put hello world
+#   docker compose run --rm bench            # load test from inside the network
+#   scripts/nemesis.sh kill-leader           # failover while the bench runs
+x-node: &node
+  build: .
+  image: raftkv:latest
+  networks: [raftnet]
+  restart: "no"
+
+services:
+  n1: { <<: *node, hostname: n1, command: ["-config", "/etc/raftkv/cluster.json", "-id", "n1", "-data", "/data"], volumes: ["n1:/data"] }
+  n2: { <<: *node, hostname: n2, command: ["-config", "/etc/raftkv/cluster.json", "-id", "n2", "-data", "/data"], volumes: ["n2:/data"] }
+  n3: { <<: *node, hostname: n3, command: ["-config", "/etc/raftkv/cluster.json", "-id", "n3", "-data", "/data"], volumes: ["n3:/data"] }
+  n4: { <<: *node, hostname: n4, command: ["-config", "/etc/raftkv/cluster.json", "-id", "n4", "-data", "/data"], volumes: ["n4:/data"] }
+  n5: { <<: *node, hostname: n5, command: ["-config", "/etc/raftkv/cluster.json", "-id", "n5", "-data", "/data"], volumes: ["n5:/data"] }
+
+  client:
+    image: raftkv:latest
+    networks: [raftnet]
+    entrypoint: ["raftkv-cli", "-config", "/etc/raftkv/cluster.json"]
+    profiles: [tools]
+
+  bench:
+    image: raftkv:latest
+    networks: [raftnet]
+    entrypoint: ["raftkv-bench", "-mode", "grpc", "-config", "/etc/raftkv/cluster.json"]
+    command: ["-clients", "128", "-duration", "30s"]
+    profiles: [tools]
+
+networks:
+  raftnet: {}
+
+volumes: { n1: {}, n2: {}, n3: {}, n4: {}, n5: {} }
